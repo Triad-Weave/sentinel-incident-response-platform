@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+
+# Node / Console
+console/node_modules/
+console/dist/
+console/.vite/
+
+# Local env & secrets (PB-08: never commit plain-text secrets)
+.env
+.env.local
+*.pem
+*.key
+
+# Eval local run maps (scenario-to-incident map stays local)
+eval/reports/*.local-map.json
+
+# OS
+.DS_Store
