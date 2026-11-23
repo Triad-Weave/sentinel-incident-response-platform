@@ -1,0 +1,65 @@
+# Kubernetes 1.30+ ValidatingAdmissionPolicies fencing rollback-executor & restart-executor (NFR-04, Arch p.19-20).
+
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: sentinel-rollback-executor-fence
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["platform.cohort.dev"]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["rollbackrequests"]
+  matchConditions:
+    - name: only-rollback-executor-sa
+      expression: "request.userInfo.username == 'system:serviceaccount:sentinel:rollback-executor'"
+  validations:
+    - expression: "object.spec.app in ['shop-orders', 'shop-payments']"
+      message: "rollback-executor may only request rollbacks for shop-orders or shop-payments"
+    - expression: "object.metadata.name.startsWith('inc-')"
+      message: "RollbackRequest name must start with 'inc-'"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: sentinel-rollback-executor-fence-binding
+spec:
+  policyName: sentinel-rollback-executor-fence
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: sentinel
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: sentinel-restart-executor-fence
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["DELETE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: only-restart-executor-sa
+      expression: "request.userInfo.username == 'system:serviceaccount:sentinel:restart-executor'"
+  validations:
+    - expression: "has(oldObject.metadata.labels) && oldObject.metadata.labels['app.kubernetes.io/name'] in ['orders', 'payments']"
+      message: "restart-executor may only delete pods labelled app.kubernetes.io/name in [orders, payments]"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: sentinel-restart-executor-fence-binding
+spec:
+  policyName: sentinel-restart-executor-fence
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: shop
