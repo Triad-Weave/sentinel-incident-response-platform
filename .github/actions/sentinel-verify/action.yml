@@ -1,0 +1,160 @@
+name: "Sentinel Verify (Internal Composite Action)"
+description: "Install verification tools and run Sentinel CI verification (make verify-ci / static / test / integration / contract / charts)."
+
+inputs:
+  mode:
+    description: "Verification mode: verify-ci, verify-fast, verify-privilege-static, or eval-validate."
+    required: false
+    default: "verify-ci"
+  python-version:
+    description: "Python version (Sentinel targets 3.12)."
+    required: false
+    default: "3.12"
+  node-version:
+    description: "Node.js version for the Incident Console."
+    required: false
+    default: "22"
+  eval-report-path:
+    description: "Path to an eval-result v1 JSON report (required when mode is eval-validate)."
+    required: false
+    default: ""
+  report-path:
+    description: "Output path for the generated Markdown verification report."
+    required: false
+    default: "docs/verification-report.md"
+
+outputs:
+  status:
+    description: "Outcome of verification: passed or failed."
+    value: ${{ steps.run-verify.outputs.status }}
+  report-path:
+    description: "Path to the generated verification report."
+    value: ${{ steps.run-verify.outputs.report_path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Validate action inputs
+      shell: bash
+      env:
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_EVAL_REPORT: ${{ inputs.eval-report-path }}
+      run: |
+        set -euo pipefail
+        case "${INPUT_MODE}" in
+          verify-ci|verify-fast|verify-privilege-static|eval-validate)
+            ;;
+          *)
+            echo "::error::Unsupported mode '${INPUT_MODE}'. Expected: verify-ci, verify-fast, verify-privilege-static, eval-validate."
+            exit 1
+            ;;
+        esac
+        if [[ "${INPUT_MODE}" == "eval-validate" && -z "${INPUT_EVAL_REPORT}" ]]; then
+          echo "::error::eval-report-path is required when mode='eval-validate'."
+          exit 1
+        fi
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+
+    - name: Set up Python ${{ inputs.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Set up pnpm
+      if: inputs.mode == 'verify-ci' || inputs.mode == 'verify-fast'
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9
+
+    - name: Set up Node.js ${{ inputs.node-version }}
+      if: inputs.mode == 'verify-ci' || inputs.mode == 'verify-fast'
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: "pnpm"
+        cache-dependency-path: "console/pnpm-lock.yaml"
+
+    - name: Install static & chart verification CLI tools (Linux runner)
+      if: runner.os == 'Linux' && (inputs.mode == 'verify-ci' || inputs.mode == 'verify-fast')
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p "${HOME}/.local/bin"
+        export PATH="${HOME}/.local/bin:${PATH}"
+        echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+
+        # hadolint
+        curl -fsSL "https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64" -o "${HOME}/.local/bin/hadolint"
+        chmod +x "${HOME}/.local/bin/hadolint"
+
+        # yamllint
+        pip install --quiet yamllint==1.35.1
+
+        # actionlint
+        curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz" | tar -xz -C "${HOME}/.local/bin" actionlint
+
+        # gitleaks
+        curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v8.24.2/gitleaks_8.24.2_linux_x64.tar.gz" | tar -xz -C "${HOME}/.local/bin" gitleaks
+
+        # kubeconform
+        curl -fsSL "https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz" | tar -xz -C "${HOME}/.local/bin" kubeconform
+
+        # helm (usually preinstalled on ubuntu-latest, install if missing)
+        if ! command -v helm >/dev/null 2>&1; then
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        fi
+
+    - name: Verify uv.lock & install dependencies
+      shell: bash
+      env:
+        INPUT_MODE: ${{ inputs.mode }}
+      run: |
+        set -euo pipefail
+        uv lock --check
+        uv sync --frozen --extra dev
+        if [[ "${INPUT_MODE}" == "verify-ci" || "${INPUT_MODE}" == "verify-fast" ]]; then
+          pnpm --dir console install --frozen-lockfile
+        fi
+
+    - name: Execute Sentinel verification
+      id: run-verify
+      shell: bash
+      env:
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_EVAL_REPORT: ${{ inputs.eval-report-path }}
+        INPUT_REPORT_PATH: ${{ inputs.report-path }}
+      run: |
+        set -uo pipefail
+        EXIT_CODE=0
+        REPORT_OUT=""
+
+        case "${INPUT_MODE}" in
+          verify-ci)
+            REPORT_OUT="${INPUT_REPORT_PATH}"
+            make verify-ci REPORT_PATH="${REPORT_OUT}" || EXIT_CODE=$?
+            ;;
+          verify-fast)
+            make verify-fast || EXIT_CODE=$?
+            ;;
+          verify-privilege-static)
+            make verify-privilege-static || EXIT_CODE=$?
+            ;;
+          eval-validate)
+            .venv/bin/platform-eval validate "${INPUT_EVAL_REPORT}" || EXIT_CODE=$?
+            ;;
+        esac
+
+        if [[ "${EXIT_CODE}" -eq 0 ]]; then
+          echo "status=passed" >> "${GITHUB_OUTPUT}"
+        else
+          echo "status=failed" >> "${GITHUB_OUTPUT}"
+        fi
+        echo "report_path=${REPORT_OUT}" >> "${GITHUB_OUTPUT}"
+
+        if [[ "${EXIT_CODE}" -ne 0 ]]; then
+          exit "${EXIT_CODE}"
+        fi
