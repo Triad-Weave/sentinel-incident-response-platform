@@ -1,0 +1,114 @@
+# Dependabot Auto-Merge Workflow
+# Security policy:
+# - Triggers on `pull_request` (NEVER `pull_request_target`).
+# - NEVER auto-approves PRs (human review ruleset on `main` remains intact).
+# - Enables squash auto-merge ONLY for semver-patch updates to GitHub Actions or dev-only tools.
+# - All runtime dependencies (mcp, pydantic, fastapi, httpx, etc.), Docker images, and minor/major
+#   bumps always wait for human review.
+name: Dependabot Auto-Merge
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+permissions: {}
+
+jobs:
+  auto-merge-patch-dev:
+    name: Auto-Merge Eligible Patch PR (Actions & Dev-Only)
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Evaluate eligibility (semver-patch + github-actions or dev-only allowlist)
+        id: policy
+        env:
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+          DEP_TYPE: ${{ steps.metadata.outputs.dependency-type }}
+          DEP_NAMES: ${{ steps.metadata.outputs.dependency-names }}
+        run: |
+          python3 - <<'PY'
+          import os, re
+
+          update_type = os.environ.get("UPDATE_TYPE", "")
+          ecosystem = os.environ.get("ECOSYSTEM", "")
+          dep_type = os.environ.get("DEP_TYPE", "")
+          raw_names = os.environ.get("DEP_NAMES", "")
+          names = [n.strip().lower() for n in re.split(r"[,\s]+", raw_names) if n.strip()]
+
+          dev_allowlist = {
+              "ruff",
+              "mypy",
+              "pytest",
+              "pytest-asyncio",
+              "pytest-cov",
+              "pytest-randomly",
+              "aiosqlite",
+              "types-pyyaml",
+              "types-jsonschema",
+              "asgi-lifespan",
+              "mutmut",
+              "vitest",
+              "@testing-library/react",
+              "@testing-library/jest-dom",
+              "@types/react",
+              "@types/react-dom",
+              "@vitejs/plugin-react",
+              "jsdom",
+              "typescript",
+              "vite",
+          }
+
+          eligible = False
+          reason = "Waiting for human review"
+          if update_type != "version-update:semver-patch":
+              reason = f"Non-patch update ({update_type or 'unknown'}) requires human review"
+          elif ecosystem == "github-actions":
+              eligible = True
+              reason = "Patch update to github-actions"
+          elif ecosystem in {"uv", "pip", "npm"} and dep_type == "direct:development" and names and all(n in dev_allowlist for n in names):
+              eligible = True
+              reason = f"Patch update to dev-only dependencies ({', '.join(names)})"
+          else:
+              reason = f"Runtime, Docker, or non-allowlisted dependency ({ecosystem}/{dep_type}: {', '.join(names)}) requires human review"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"eligible={'true' if eligible else 'false'}\n")
+              fh.write(f"reason={reason}\n")
+          print(f"Auto-merge decision: eligible={eligible} ({reason})")
+          PY
+
+      - name: Enable squash auto-merge (after required CI checks pass; no auto-approval)
+        if: steps.policy.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          REASON: ${{ steps.policy.outputs.reason }}
+        run: |
+          set -euo pipefail
+          echo "Enabling squash auto-merge (${REASON}) — never auto-approving."
+          if ! gh pr merge --auto --squash "${PR_URL}"; then
+            echo "::notice::Could not enable auto-merge (ensure 'Allow auto-merge' is enabled in Repository Settings -> General -> Pull Requests)."
+          fi
+
+      - name: Record manual review requirement
+        if: steps.policy.outputs.eligible != 'true'
+        env:
+          REASON: ${{ steps.policy.outputs.reason }}
+        run: |
+          echo "::notice::Auto-merge skipped: ${REASON}"
