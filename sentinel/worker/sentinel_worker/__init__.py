@@ -1,0 +1,1 @@
+"""Sentinel investigation worker package."""
