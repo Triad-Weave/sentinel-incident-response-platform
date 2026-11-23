@@ -1,0 +1,12 @@
+title = "Sentinel gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow synthetic test fixtures and placeholder .env.example tokens only"
+paths = [
+  '''^tests/''',
+  '''^\.env\.example$''',
+  '''^docs/''',
+]
