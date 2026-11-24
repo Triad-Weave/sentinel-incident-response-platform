@@ -1,0 +1,28 @@
+id: S09-benign-deploy-red-herring
+description: Benign Payments 2.2.1 deploy followed 4 minutes later by Orders 25% error rate (trap scenario).
+setup:
+  baseline_minutes: 2
+inject:
+  - kind: release
+    service: payments
+    variant: rebuild
+    after: 0s
+  - kind: fault
+    type: error_rate
+    service: orders
+    intensity: {share: 0.25}
+    duration: 10m
+    after: 240s
+expect:
+  alert_within_seconds: 180
+  service: orders
+  fault_type: error_rate
+  action: none
+  action_if_restart_enabled: none
+judge_reference: >
+  Payments 2.2.1 was deployed 4 minutes earlier, but Payments stayed completely healthy and Orders
+  upstream error ratio stayed flat. The fault is a local Orders error_rate spike, not a bad release.
+cleanup:
+  clear_faults: true
+  restore_release: true
+  recovery_timeout_seconds: 300
