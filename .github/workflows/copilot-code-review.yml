@@ -1,0 +1,217 @@
+# Copilot Code Review & Sentinel Security PR Reviewer
+# 1. Requests automated GitHub Copilot review on non-draft PRs (when enabled on the repository/account).
+# 2. Runs a deterministic Sentinel Security & Architecture review against .github/copilot-instructions.md
+#    and posts/updates a single idempotent summary comment on the pull request.
+name: Copilot Code Review
+
+on:
+  pull_request:
+    branches:
+      - main
+      - "release/*"
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number to review manually"
+        required: true
+        type: string
+
+concurrency:
+  group: copilot-review-${{ github.event.pull_request.number || inputs.pr_number || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  copilot-review:
+    name: Request Copilot Review & Security Audit
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Pull Request Number
+        id: pr
+        env:
+          EVENT_PR: ${{ github.event.pull_request.number }}
+          INPUT_PR: ${{ inputs.pr_number }}
+        run: |
+          PR_NUM="${EVENT_PR:-${INPUT_PR}}"
+          echo "number=${PR_NUM}" >> "${GITHUB_OUTPUT}"
+
+      - name: Request GitHub Copilot Code Review
+        id: request-copilot
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        with:
+          script: |
+            const prNumber = Number(process.env.PR_NUMBER);
+            if (!prNumber) {
+              core.notice("No pull request number available; skipping Copilot review request.");
+              return;
+            }
+            try {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                reviewers: ["copilot-pull-request-reviewer[bot]"],
+              });
+              core.setOutput("copilot_status", "requested");
+              core.info(`Requested GitHub Copilot review on PR #${prNumber}.`);
+            } catch (err) {
+              // Graceful fallback if Copilot Code Review is not enabled on the repo/plan or on fork PRs
+              core.setOutput("copilot_status", "unavailable");
+              core.notice(
+                `Could not automatically request copilot-pull-request-reviewer[bot] (${err.status || "error"}: ${err.message}). ` +
+                "Enable GitHub Copilot Code Review in Repository Settings -> Rulesets/Branches if desired. Continuing with automated Sentinel checklist."
+              );
+            }
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML for manifest checks
+        run: python -m pip install --no-cache-dir pyyaml
+
+      - name: Run Sentinel Security & Architecture PR Checklist
+        id: sentinel-review
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          COPILOT_STATUS: ${{ steps.request-copilot.outputs.copilot_status }}
+        run: |
+          python - <<'PY'
+          import os, re, subprocess, sys
+          from pathlib import Path
+
+          sys.path.insert(0, ".")
+          from scripts.verify import _check_repo_plaintext_secrets_and_nonroot
+          from tests.e2e.verify_privilege import (
+              verify_image_isolation_and_memory_cap,
+              verify_network_and_admission_policies,
+              verify_rbac_against_allowlist,
+          )
+
+          base = os.environ.get("BASE_SHA", "")
+          head = os.environ.get("HEAD_SHA", "")
+          changed = []
+          if base and head:
+              proc = subprocess.run(
+                  ["git", "diff", "--name-only", f"{base}...{head}"],
+                  capture_output=True, text=True, check=False,
+              )
+              if proc.returncode == 0:
+                  changed = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
+          security_sensitive = [
+              "sentinel/common/redaction.py",
+              "sentinel/common/scanners.py",
+              "sentinel/mcp_server/sentinel_mcp/queries.py",
+              "sentinel/mcp_server/sentinel_mcp/tools.py",
+              "sentinel/worker/sentinel_worker/agent.py",
+              "sentinel/api/sentinel_api/deps.py",
+              "sentinel/api/sentinel_api/routes/actions.py",
+              "sentinel/rollback_executor/",
+              "sentinel/restart_executor/",
+              "sentinel-gitops/policies/",
+              "Dockerfile",
+          ]
+          touched_sensitive = [
+              f for f in changed if any(pat in f for pat in security_sensitive)
+          ]
+
+          priv_errors = (
+              verify_rbac_against_allowlist()
+              + verify_network_and_admission_policies()
+              + verify_image_isolation_and_memory_cap()
+          )
+          secret_res = _check_repo_plaintext_secrets_and_nonroot()
+
+          hard_failures = list(priv_errors)
+          if not secret_res.passed:
+              hard_failures.extend(secret_res.details.splitlines())
+
+          copilot_status = os.environ.get("COPILOT_STATUS", "unavailable")
+          lines = [
+              "<!-- sentinel-copilot-review -->",
+              "## Sentinel Automated Code Review",
+              "",
+              f"- **GitHub Copilot PR Reviewer:** `{copilot_status}` (guided by `.github/copilot-instructions.md`)",
+              f"- **Changed files scanned:** `{len(changed)}`",
+              f"- **RBAC / NetworkPolicy / AdmissionPolicy / Image Isolation / 2.5 GB Cap:** {'PASS' if not priv_errors else 'FAIL'}",
+              f"- **PB-08 Secret Scan & Non-Root Dockerfiles:** {'PASS' if secret_res.passed else 'FAIL'}",
+              "",
+          ]
+
+          if touched_sensitive:
+              lines.append("### Security-Critical Files Modified (Require Careful Review)")
+              for f in touched_sensitive:
+                  lines.append(f"- `{f}`")
+              lines.append("")
+
+          if hard_failures:
+              lines.append("### Blocking Findings")
+              for err in hard_failures:
+                  lines.append(f"- {err}")
+          else:
+              lines.append("No blocking security or isolation violations detected.")
+
+          Path("review-comment.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+              fh.write("\n".join(lines) + "\n")
+
+          if hard_failures:
+              print("Blocking security review findings detected!", file=sys.stderr)
+              sys.exit(1)
+          PY
+
+      - name: Post or update PR Review Summary Comment
+        if: always() && steps.pr.outputs.number != '' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        with:
+          script: |
+            const fs = require("fs");
+            if (!fs.existsSync("review-comment.md")) return;
+            const body = fs.readFileSync("review-comment.md", "utf8");
+            const prNumber = Number(process.env.PR_NUMBER);
+            const marker = "<!-- sentinel-copilot-review -->";
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }

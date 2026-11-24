@@ -1,0 +1,247 @@
+# Self-contained local development & integration stack for Sentinel + Platform Observability + Dev Shims.
+# Start with: docker compose up --build
+# Console UI: http://localhost:8080 | Grafana: http://localhost:3000 | Prometheus: http://localhost:9090
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-dev-postgres-only}
+    command: ["postgres", "-c", "max_connections=200"]
+    ports: ["5432:5432"]
+    volumes:
+      - ./platform/dev-shims/postgres/init-dbs.sql:/docker-entrypoint-initdb.d/01-init-dbs.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: sentinel
+      RABBITMQ_DEFAULT_PASS: sentinel_queue_dev_pw
+    ports: ["5672:5672", "15672:15672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    ports: ["9090:9090"]
+    volumes:
+      - ./platform/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./platform/observability/rules:/etc/prometheus/rules:ro
+
+  loki:
+    image: grafana/loki:3.2.0
+    ports: ["3100:3100"]
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    volumes:
+      - ./platform/observability/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    ports: ["9093:9093"]
+    volumes:
+      - ./platform/observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    ports: ["3000:3000"]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    volumes:
+      - ./platform/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./platform/observability/grafana/dashboards:/etc/grafana/provisioning/dashboards/json:ro
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.114.0
+    ports: ["4318:4318", "8889:8889"]
+    volumes:
+      - ./platform/observability/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+
+  eval-store:
+    build:
+      context: .
+      dockerfile: platform/eval/Dockerfile
+    ports: ["8096:8096"]
+    environment:
+      EVAL_STORE_TOKEN: ${EVAL_STORE_TOKEN:-dev-eval-store-token}
+
+  llm-gateway:
+    build:
+      context: .
+      dockerfile: platform/dev-shims/llm_gateway/Dockerfile
+    ports: ["8090:8090"]
+    environment:
+      LLM_GATEWAY_API_KEY: ${LLM_GATEWAY_API_KEY:-dev-sentinel-gateway-key}
+      SENTINEL_DAILY_BUDGET_USD: ${SENTINEL_DAILY_BUDGET_USD:-10.0}
+      UPSTREAM_LLM_BASE_URL: ${UPSTREAM_LLM_BASE_URL:-}
+      UPSTREAM_LLM_API_KEY: ${UPSTREAM_LLM_API_KEY:-}
+
+  rollback-controller:
+    build:
+      context: .
+      dockerfile: platform/dev-shims/rollback_controller/Dockerfile
+    ports: ["8095:8095"]
+    environment:
+      DEPLOY_HISTORY_READ_TOKEN: ${DEPLOY_HISTORY_READ_TOKEN:-dev-deploy-history-token}
+      GITOPS_DIR: /gitops
+    volumes:
+      - ./sentinel-gitops:/gitops
+
+  chaos-controller:
+    build:
+      context: .
+      dockerfile: chaos/controller/Dockerfile
+    ports: ["8010:8010"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POD_NAMESPACE: sentinel-chaos
+      CHAOS_DATABASE_URL: ${CHAOS_DB_URL:-postgresql+asyncpg://chaos_rw:chaos_dev_pw@postgres:5432/chaos}
+      CHAOS_OPERATOR_TOKEN: ${CHAOS_OPERATOR_TOKEN:-dev-chaos-operator-token}
+      CHAOS_ORDERS_READ_TOKEN: ${CHAOS_ORDERS_READ_TOKEN:-dev-chaos-orders-token}
+      CHAOS_PAYMENTS_READ_TOKEN: ${CHAOS_PAYMENTS_READ_TOKEN:-dev-chaos-payments-token}
+
+  payments:
+    build:
+      context: .
+      dockerfile: services/payments/Dockerfile
+    ports: ["8002:8002"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chaos-controller:
+        condition: service_started
+    environment:
+      POD_NAMESPACE: shop
+      PAYMENTS_DATABASE_URL: ${PAYMENTS_DB_URL:-postgresql+asyncpg://payments_app:payments_dev_pw@postgres:5432/payments}
+      PAYMENTS_CHAOS_CONTROLLER_URL: http://chaos-controller:8010
+      PAYMENTS_CHAOS_READ_TOKEN: ${CHAOS_PAYMENTS_READ_TOKEN:-dev-chaos-payments-token}
+      PAYMENTS_CANARY_PASSWORD: ${CANARY_PASSWORD:-canary-pw-sentinel-9f8e7d6c}
+      PAYMENTS_CANARY_BEARER_TOKEN: ${CANARY_BEARER_TOKEN:-canary-tok-sentinel-a1b2c3d4e5f6}
+
+  orders:
+    build:
+      context: .
+      dockerfile: services/orders/Dockerfile
+    ports: ["8001:8001"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      payments:
+        condition: service_started
+    environment:
+      POD_NAMESPACE: shop
+      ORDERS_DATABASE_URL: ${ORDERS_DB_URL:-postgresql+asyncpg://orders_app:orders_dev_pw@postgres:5432/orders}
+      ORDERS_PAYMENTS_URL: http://payments:8002
+      ORDERS_CHAOS_CONTROLLER_URL: http://chaos-controller:8010
+      ORDERS_CHAOS_READ_TOKEN: ${CHAOS_ORDERS_READ_TOKEN:-dev-chaos-orders-token}
+
+  loadgen:
+    build:
+      context: .
+      dockerfile: services/loadgen/Dockerfile
+    depends_on: [orders]
+    environment:
+      LOADGEN_ORDERS_URL: http://orders:8001
+      LOADGEN_RPS: "10"
+      LOADGEN_SEED: "42"
+
+  sentinel-mcp:
+    build:
+      context: .
+      dockerfile: sentinel/mcp_server/Dockerfile
+    ports: ["8003:8003"]
+    environment:
+      POD_NAMESPACE: sentinel
+      PROMETHEUS_URL: http://prometheus:9090
+      LOKI_URL: http://loki:3100
+      PB07_CONTROLLER_URL: http://rollback-controller:8095
+      DEPLOY_HISTORY_READ_TOKEN: ${DEPLOY_HISTORY_READ_TOKEN:-dev-deploy-history-token}
+      SENTINEL_MCP_TOKEN: ${SENTINEL_MCP_TOKEN:-dev-mcp-token}
+
+  sentinel-api:
+    build:
+      context: .
+      dockerfile: sentinel/api/Dockerfile
+    ports: ["8000:8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      POD_NAMESPACE: sentinel
+      SENTINEL_DATABASE_URL: ${SENTINEL_API_DB_URL:-postgresql+asyncpg://sentinel_api:sentinel_api_dev_pw@postgres:5432/sentinel}
+      SENTINEL_RABBITMQ_URL: ${RABBITMQ_URL:-amqp://sentinel:sentinel_queue_dev_pw@rabbitmq:5672/}
+      SENTINEL_ALERTMANAGER_WEBHOOK_TOKEN: ${ALERTMANAGER_WEBHOOK_TOKEN:-dev-alertmanager-webhook-token}
+      SENTINEL_SESSION_SECRET: ${SENTINEL_SESSION_SECRET:-dev-session-secret-change-me}
+      SENTINEL_LLM_GATEWAY_URL: http://llm-gateway:8090/v1
+      SENTINEL_LLM_GATEWAY_API_KEY: ${LLM_GATEWAY_API_KEY:-dev-sentinel-gateway-key}
+
+  sentinel-worker:
+    build:
+      context: .
+      dockerfile: sentinel/worker/Dockerfile
+    ports: ["8004:8004"]
+    depends_on:
+      sentinel-api:
+        condition: service_started
+      sentinel-mcp:
+        condition: service_started
+      llm-gateway:
+        condition: service_started
+    environment:
+      POD_NAMESPACE: sentinel
+      SENTINEL_DATABASE_URL: ${SENTINEL_WORKER_DB_URL:-postgresql+asyncpg://sentinel_worker:sentinel_worker_dev_pw@postgres:5432/sentinel}
+      SENTINEL_RABBITMQ_URL: ${RABBITMQ_URL:-amqp://sentinel:sentinel_queue_dev_pw@rabbitmq:5672/}
+      SENTINEL_MCP_URL: http://sentinel-mcp:8003/mcp
+      SENTINEL_MCP_TOKEN: ${SENTINEL_MCP_TOKEN:-dev-mcp-token}
+      SENTINEL_LLM_GATEWAY_URL: http://llm-gateway:8090/v1
+      SENTINEL_LLM_GATEWAY_API_KEY: ${LLM_GATEWAY_API_KEY:-dev-sentinel-gateway-key}
+      SENTINEL_AGENT_MODEL: ${SENTINEL_AGENT_MODEL:-gpt-4o-mini}
+
+  rollback-executor:
+    build:
+      context: .
+      dockerfile: sentinel/rollback_executor/Dockerfile
+    ports: ["8005:8005"]
+    depends_on:
+      sentinel-api:
+        condition: service_started
+      rollback-controller:
+        condition: service_started
+    environment:
+      POD_NAMESPACE: sentinel
+      SENTINEL_DATABASE_URL: ${SENTINEL_ACTUATOR_DB_URL:-postgresql+asyncpg://sentinel_actuator:sentinel_actuator_dev_pw@postgres:5432/sentinel}
+      SENTINEL_RABBITMQ_URL: ${RABBITMQ_URL:-amqp://sentinel:sentinel_queue_dev_pw@rabbitmq:5672/}
+      SENTINEL_ROLLBACK_MODE: ${ROLLBACK_MODE:-http_shim}
+      SENTINEL_PB07_CONTROLLER_URL: http://rollback-controller:8095
+
+  restart-executor:
+    build:
+      context: .
+      dockerfile: sentinel/restart_executor/Dockerfile
+    ports: ["8006:8006"]
+    depends_on:
+      sentinel-api:
+        condition: service_started
+    environment:
+      POD_NAMESPACE: sentinel
+      SENTINEL_DATABASE_URL: ${SENTINEL_ACTUATOR_DB_URL:-postgresql+asyncpg://sentinel_actuator:sentinel_actuator_dev_pw@postgres:5432/sentinel}
+      SENTINEL_RABBITMQ_URL: ${RABBITMQ_URL:-amqp://sentinel:sentinel_queue_dev_pw@rabbitmq:5672/}
+
+  console:
+    build:
+      context: .
+      dockerfile: console/Dockerfile
+    ports: ["8080:8080"]
+    depends_on: [sentinel-api]

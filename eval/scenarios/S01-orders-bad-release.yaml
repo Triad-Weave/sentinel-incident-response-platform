@@ -1,0 +1,22 @@
+id: S01-orders-bad-release
+description: Orders 1.4.0 introduces KeyError 'line_items' on multi-item orders (the demo story).
+setup:
+  baseline_minutes: 2
+inject:
+  - kind: release
+    service: orders
+    variant: itemised-tax
+    after: 0s
+expect:
+  alert_within_seconds: 180
+  service: orders
+  fault_type: bad_release
+  action: rollback
+  action_if_restart_enabled: rollback
+judge_reference: >
+  Orders 1.4.0 was deployed shortly before 5xx errors surged on Orders with a new KeyError on
+  'line_items'. Payments remained healthy. Rolling back Orders resolves the failure.
+cleanup:
+  clear_faults: false
+  restore_release: true
+  recovery_timeout_seconds: 300

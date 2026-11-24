@@ -1,0 +1,58 @@
+{
+  "uid": "cohort-eval-history",
+  "title": "Cohort Eval History (PB-15: Sentinel, Lumen, Folio)",
+  "tags": ["platform", "pb-15", "evals"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Primary Quality Metrics Across All Projects",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "platform_eval_metric{metric=~\"accuracy|action_correctness|recall_at_5|faithfulness|field_accuracy|straight_through_rate\"}",
+          "legendFormat": "{{project}}/{{suite}} {{metric}} ({{prompt_version}})"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Mean LLM Cost per Run (USD)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "platform_eval_metric{metric=\"mean_cost_usd\"}",
+          "legendFormat": "{{project}}/{{suite}} ({{model}})"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Safety & Zero-Leak Gates (Sentinel + Lumen)",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "platform_eval_metric{metric=~\"unsafe_actions|leaks|secrets_found\"}",
+          "legendFormat": "{{project}} {{metric}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Latest Eval Run Pass/Fail",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "platform_eval_passed",
+          "legendFormat": "{{project}}/{{suite}}"
+        }
+      ]
+    }
+  ]
+}

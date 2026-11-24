@@ -1,0 +1,138 @@
+# Scheduled & Manual Dependency Audit
+# Audits Python (uv.lock + pip-audit) and Console (pnpm-lock.yaml + pnpm audit),
+# checks lockfile consistency (`uv lock --check`), and runs `make verify-fast`.
+name: Dependency Updates & Audit
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      fail_on_vulnerabilities:
+        description: "Fail workflow if known vulnerabilities are detected"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: dependency-updates-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  audit-dependencies:
+    name: Audit Python (uv) & Console (pnpm) Dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up pnpm (matches console/pnpm-lock.yaml)
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: "console/pnpm-lock.yaml"
+
+      - name: Verify uv.lock & install dependencies
+        run: |
+          set -euo pipefail
+          uv lock --check
+          uv sync --frozen --extra dev
+          pnpm --dir console install --frozen-lockfile
+
+      - name: Audit Python packages (pip-audit & outdated check)
+        id: py-audit
+        run: |
+          mkdir -p reports/deps
+          PIP_AUDIT_RC=0
+          uvx pip-audit --format json --output reports/deps/pip-audit.json || PIP_AUDIT_RC=$?
+          uv pip list --python .venv/bin/python --outdated --format=json > reports/deps/python-outdated.json || echo "[]" > reports/deps/python-outdated.json
+          echo "pip_audit_rc=${PIP_AUDIT_RC}" >> "${GITHUB_OUTPUT}"
+
+      - name: Audit Console packages (pnpm audit matching console/pnpm-lock.yaml)
+        id: node-audit
+        working-directory: console
+        run: |
+          PNPM_AUDIT_RC=0
+          pnpm audit --json > ../reports/deps/pnpm-audit.json || PNPM_AUDIT_RC=$?
+          pnpm outdated --format json > ../reports/deps/console-outdated.json || echo "{}" > ../reports/deps/console-outdated.json
+          echo "pnpm_audit_rc=${PNPM_AUDIT_RC}" >> "${GITHUB_OUTPUT}"
+
+      - name: Run fast verification baseline
+        run: make verify-fast
+
+      - name: Generate Dependency Audit Summary
+        env:
+          PIP_AUDIT_RC: ${{ steps.py-audit.outputs.pip_audit_rc }}
+          PNPM_AUDIT_RC: ${{ steps.node-audit.outputs.pnpm_audit_rc }}
+        run: |
+          .venv/bin/python - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          def load_json(path, default):
+              try:
+                  return json.loads(Path(path).read_text(encoding="utf-8"))
+              except Exception:
+                  return default
+
+          pip_audit = load_json("reports/deps/pip-audit.json", {})
+          py_outdated = load_json("reports/deps/python-outdated.json", [])
+          pnpm_audit = load_json("reports/deps/pnpm-audit.json", {})
+          console_outdated = load_json("reports/deps/console-outdated.json", {})
+
+          py_vulns = sum(len(dep.get("vulns", [])) for dep in pip_audit.get("dependencies", []))
+          node_vulns = (pnpm_audit.get("metadata") or {}).get("vulnerabilities") or {}
+          node_vuln_total = sum(int(v) for v in node_vulns.values()) if isinstance(node_vulns, dict) else 0
+
+          lines = [
+              "## Sentinel Weekly Dependency & Vulnerability Report",
+              "",
+              "| Ecosystem | Lockfile | Vulnerabilities Found | Outdated Packages | Audit Exit Code |",
+              "|---|---|---:|---:|---:|",
+              f"| Python (`pip-audit`) | `uv.lock` | {py_vulns} | {len(py_outdated)} | `{os.environ.get('PIP_AUDIT_RC', '0')}` |",
+              f"| Console (`pnpm audit`) | `console/pnpm-lock.yaml` | {node_vuln_total} | {len(console_outdated)} | `{os.environ.get('PNPM_AUDIT_RC', '0')}` |",
+              "",
+          ]
+          summary = "\n".join(lines)
+          Path("reports/deps/summary.md").write_text(summary, encoding="utf-8")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+              fh.write(summary)
+          PY
+
+      - name: Upload dependency audit reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-reports
+          path: reports/deps/
+          retention-days: 30
+
+      - name: Enforce vulnerability gate (if requested)
+        if: inputs.fail_on_vulnerabilities == true
+        env:
+          PIP_AUDIT_RC: ${{ steps.py-audit.outputs.pip_audit_rc }}
+          PNPM_AUDIT_RC: ${{ steps.node-audit.outputs.pnpm_audit_rc }}
+        run: |
+          if [[ "${PIP_AUDIT_RC}" != "0" || "${PNPM_AUDIT_RC}" != "0" ]]; then
+            echo "::error::Dependency vulnerabilities found (pip-audit=${PIP_AUDIT_RC}, pnpm-audit=${PNPM_AUDIT_RC})."
+            exit 1
+          fi

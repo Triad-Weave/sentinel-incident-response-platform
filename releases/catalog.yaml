@@ -1,0 +1,32 @@
+# Operator-side release catalog (BUILD_PROMPT section 5.4 — NEVER packaged into agent/MCP images!)
+# No hardcoded image tags: `sentinelctl release ship` resolves each branch head SHA via git ls-remote
+# and verifies the SHA-tagged image exists in the container registry before touching release.yaml.
+
+orders:
+  good:
+    branch: main
+    version: "1.3.0"
+    message: "fix(orders): validate quantity bounds"
+  variants:
+    itemised-tax:
+      branch: release/orders-itemised-tax
+      version: "1.4.0"
+      kind: bad
+      message: "feat(orders): itemised tax lines"
+
+payments:
+  good:
+    branch: main
+    version: "2.2.0"
+    message: "fix(payments): stricter expiry check"
+  variants:
+    rebuild:
+      branch: release/payments-rebuild
+      version: "2.2.1"
+      kind: benign
+      message: "chore(payments): bump base image"
+    fraud-n1:
+      branch: release/payments-fraud-n1
+      version: "2.3.0"
+      kind: bad
+      message: "feat(payments): fraud score on recent history"

@@ -1,0 +1,50 @@
+# Shared Cohort Platform Registry (PB-10, PB-12, PB-14)
+projects:
+  sentinel:
+    owner: sentinel-mentee
+    namespaces: [shop, sentinel, sentinel-chaos]
+    apps: [shop-orders, shop-payments]
+    databases: [orders, payments, sentinel, chaos]
+    queues:
+      - name: sentinel.investigations
+        max_deliveries: 5
+        dead_letter: sentinel.investigations.dlq
+      - name: sentinel.actions
+        max_deliveries: 5
+        dead_letter: sentinel.actions.dlq
+    alert_webhook: http://sentinel-api:8000/api/v1/alerts/alertmanager
+    llm:
+      daily_budget_usd: 10.0
+      allowed_models: [gpt-4o-mini, gpt-4o, gemini-2.5-flash, gemini-2.5-pro, claude-3-5-sonnet]
+      features: [investigation, judge, postmortem, followup]
+
+  lumen:
+    owner: lumen-mentee
+    namespaces: [lumen]
+    apps: [lumen-api, lumen-worker]
+    databases: [lumen]
+    queues:
+      - name: lumen.ingestion
+        max_deliveries: 5
+        dead_letter: lumen.ingestion.dlq
+    alert_webhook: http://lumen-api.lumen.svc.cluster.local:8000/api/v1/alerts/webhook
+    llm:
+      daily_budget_usd: 5.0
+      allowed_models: [gpt-4o-mini, gemini-2.5-flash, text-embedding-3-small]
+      features: [rag_answer, embeddings, judge]
+
+  folio:
+    owner: folio-mentee
+    namespaces: [folio]
+    apps: [folio-api, folio-worker]
+    databases: [folio]
+    queues:
+      - name: folio.invoices
+        max_deliveries: 5
+        dead_letter: folio.invoices.dlq
+    alert_webhook: http://folio-api.folio.svc.cluster.local:8000/api/v1/alerts/webhook
+    llm:
+      daily_budget_usd: 5.0
+      ci_eval_budget_usd: 2.0
+      allowed_models: [gpt-4o-mini, gpt-4o, gemini-2.5-flash, gemini-2.5-pro]
+      features: [extract_tier1, extract_tier2, eval_ci]

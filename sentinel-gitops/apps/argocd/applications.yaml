@@ -1,0 +1,95 @@
+# Argo CD Applications for `shop`, `sentinel-chaos`, and `sentinel` (PB-06)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: shop-orders
+  namespace: argocd
+  labels:
+    project: sentinel
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/cohort-platform/sentinel-gitops.git
+    targetRevision: main
+    path: charts/orders
+    helm:
+      valueFiles:
+        - ../../apps/shop/orders/values.yaml
+        - ../../apps/shop/orders/release.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: shop
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: shop-payments
+  namespace: argocd
+  labels:
+    project: sentinel
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/cohort-platform/sentinel-gitops.git
+    targetRevision: main
+    path: charts/payments
+    helm:
+      valueFiles:
+        - ../../apps/shop/payments/values.yaml
+        - ../../apps/shop/payments/release.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: shop
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sentinel-chaos
+  namespace: argocd
+  labels:
+    project: sentinel
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/cohort-platform/sentinel-gitops.git
+    targetRevision: main
+    path: charts/chaos-controller
+    helm:
+      valueFiles:
+        - ../../apps/sentinel-chaos/chaos-controller/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sentinel-chaos
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sentinel-stack
+  namespace: argocd
+  labels:
+    project: sentinel
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/cohort-platform/sentinel-gitops.git
+    targetRevision: main
+    path: policies
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sentinel
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

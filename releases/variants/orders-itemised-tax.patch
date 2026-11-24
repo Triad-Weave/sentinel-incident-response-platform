@@ -1,0 +1,22 @@
+diff --git a/services/orders/VERSION b/services/orders/VERSION
+index 1111111..2222222 100644
+--- a/services/orders/VERSION
++++ b/services/orders/VERSION
+@@ -1 +1 @@
+-1.3.0
++1.4.0
+diff --git a/services/orders/orders_app/main.py b/services/orders/orders_app/main.py
+index 3333333..4444444 100644
+--- a/services/orders/orders_app/main.py
++++ b/services/orders/orders_app/main.py
+@@ -43,6 +43,12 @@ class CreateOrderRequest(BaseModel):
+ def calculate_order_total(items: list[LineItem]) -> int:
+     """Compute order subtotal plus flat 8% tax in cents."""
+     subtotal = sum(item.qty * item.unit_price_cents for item in items)
++    if len(items) > 1:
++        # Itemised tax breakdown expects legacy 'line_items' mapping key -> KeyError on multi-item orders
++        payload = {"items": [i.model_dump() for i in items]}
++        tax = sum(round(entry["qty"] * entry["unit_price_cents"] * 0.08) for entry in payload["line_items"])
++        return subtotal + tax
+     tax = round(subtotal * 0.08)
+     return subtotal + tax

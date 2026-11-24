@@ -1,0 +1,28 @@
+id: S10-bad-release-with-noise
+description: Orders bad release 1.4.0 while Payments carries sub-threshold +150 ms noise (trap scenario).
+setup:
+  baseline_minutes: 2
+inject:
+  - kind: fault
+    type: latency
+    service: payments
+    intensity: {delay_ms: 150, share: 1.0}
+    duration: 10m
+    after: 0s
+  - kind: release
+    service: orders
+    variant: itemised-tax
+    after: 30s
+expect:
+  alert_within_seconds: 180
+  service: orders
+  fault_type: bad_release
+  action: rollback
+  action_if_restart_enabled: rollback
+judge_reference: >
+  Orders 1.4.0 deployment caused a sharp 5xx surge with KeyError 'line_items' immediately after
+  rollout; the mild +150 ms Payments latency is below alert thresholds and not the cause of Orders 500s.
+cleanup:
+  clear_faults: true
+  restore_release: true
+  recovery_timeout_seconds: 300

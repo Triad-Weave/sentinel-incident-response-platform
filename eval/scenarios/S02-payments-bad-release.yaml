@@ -1,0 +1,22 @@
+id: S02-payments-bad-release
+description: Payments 2.3.0 introduces an N+1 fraud score query slowing authorizations (~1s); Orders latency alert may fire first.
+setup:
+  baseline_minutes: 2
+inject:
+  - kind: release
+    service: payments
+    variant: fraud-n1
+    after: 0s
+expect:
+  alert_within_seconds: 180
+  service: payments
+  fault_type: bad_release
+  action: rollback
+  action_if_restart_enabled: rollback
+judge_reference: >
+  Payments 2.3.0 was deployed immediately before Payments p95 latency jumped ~1s; Orders latency
+  rose only because of its upstream calls to Payments. Rolling back Payments fixes the root cause.
+cleanup:
+  clear_faults: false
+  restore_release: true
+  recovery_timeout_seconds: 300

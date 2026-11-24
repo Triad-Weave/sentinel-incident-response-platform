@@ -1,0 +1,35 @@
+# Git & IDE
+.git/
+.gitignore
+.DS_Store
+
+# Python local environments & caches
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# Node local dependencies & build output
+console/node_modules/
+console/dist/
+console/.vite/
+console/tsconfig.tsbuildinfo
+
+# Local secrets & env files (PB-08)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Large reference docs & local eval artifacts (never needed in runtime images)
+docs/
+tests/
+eval/reports/*.local-map.json

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: payments
+description: Thin PB-04 chart for Sentinel Shop Payments service
+type: application
+version: 0.1.0
+appVersion: "2.2.0"
+dependencies:
+  - name: service-lib
+    version: "^1.0.0"
+    repository: "oci://ghcr.io/cohort-platform/charts"

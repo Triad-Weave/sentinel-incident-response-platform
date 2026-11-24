@@ -1,0 +1,10 @@
+apiVersion: v2
+name: restart-executor
+description: Thin PB-04 chart for Sentinel narrow Restart Executor (FR-AG-08)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: service-lib
+    version: "^1.0.0"
+    repository: "oci://ghcr.io/cohort-platform/charts"

@@ -1,0 +1,74 @@
+{
+  "uid": "cohort-queues-workers",
+  "title": "Queues and Workers (PB-12, PB-13)",
+  "tags": ["platform", "pb-12", "pb-13", "queues"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "templating": {
+    "list": [
+      {
+        "name": "project",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(queue_backlog_messages, project)",
+        "refresh": 2,
+        "includeAll": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Queue Backlog (messages)",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "queue_backlog_messages{project=~\"$project\"}",
+          "legendFormat": "{{project}}/{{queue}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Dead-Letter Queue Depth (PB-12 / Folio FR-RL-03)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "queue_dead_letter_messages{project=~\"$project\"}",
+          "legendFormat": "{{project}}/{{queue}} DLQ"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Published vs Consumed Rate",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (queue) (rate(queue_messages_published_total{project=~\"$project\"}[1m]))",
+          "legendFormat": "pub {{queue}}"
+        },
+        {
+          "expr": "sum by (queue, status) (rate(queue_messages_consumed_total{project=~\"$project\"}[1m]))",
+          "legendFormat": "consume {{queue}} ({{status}})"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Worker Replicas (Autoscaling PB-13)",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "kube_deployment_status_replicas_available{deployment=~\".*worker.*\"}",
+          "legendFormat": "{{namespace}}/{{deployment}}"
+        }
+      ]
+    }
+  ]
+}

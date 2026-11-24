@@ -1,0 +1,24 @@
+id: S05-payments-error-rate
+description: Payments returns 40% 5xx errors; Orders cascades 502s upstream.
+setup:
+  baseline_minutes: 2
+inject:
+  - kind: fault
+    type: error_rate
+    service: payments
+    intensity: {share: 0.40}
+    duration: 10m
+    after: 0s
+expect:
+  alert_within_seconds: 180
+  service: payments
+  fault_type: error_rate
+  action: none
+  action_if_restart_enabled: none
+judge_reference: >
+  Payments error ratio surged to ~40% with no recent deploy, causing PaymentFailuresHigh and
+  cascading upstream 5xx errors into Orders.
+cleanup:
+  clear_faults: true
+  restore_release: false
+  recovery_timeout_seconds: 300

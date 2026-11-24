@@ -1,0 +1,84 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+rule_files:
+  - /etc/prometheus/rules/*.yaml
+
+scrape_configs:
+  - job_name: orders
+    static_configs:
+      - targets: ["orders:8001"]
+        labels:
+          project: sentinel
+          service: orders
+          namespace: shop
+
+  - job_name: payments
+    static_configs:
+      - targets: ["payments:8002"]
+        labels:
+          project: sentinel
+          service: payments
+          namespace: shop
+
+  - job_name: sentinel-api
+    static_configs:
+      - targets: ["sentinel-api:8000"]
+        labels:
+          project: sentinel
+          service: sentinel-api
+          namespace: sentinel
+
+  - job_name: sentinel-worker
+    static_configs:
+      - targets: ["sentinel-worker:8004"]
+        labels:
+          project: sentinel
+          service: sentinel-worker
+          namespace: sentinel
+
+  - job_name: sentinel-mcp
+    static_configs:
+      - targets: ["sentinel-mcp:8003"]
+        labels:
+          project: sentinel
+          service: sentinel-mcp
+          namespace: sentinel
+
+  - job_name: rollback-executor
+    static_configs:
+      - targets: ["rollback-executor:8005"]
+        labels:
+          project: sentinel
+          service: rollback-executor
+          namespace: sentinel
+
+  - job_name: restart-executor
+    static_configs:
+      - targets: ["restart-executor:8006"]
+        labels:
+          project: sentinel
+          service: restart-executor
+          namespace: sentinel
+
+  - job_name: llm-gateway
+    static_configs:
+      - targets: ["llm-gateway:8090"]
+        labels:
+          project: platform
+          service: llm-gateway
+          namespace: platform
+
+  - job_name: eval-store
+    static_configs:
+      - targets: ["eval-store:8096"]
+        labels:
+          project: platform
+          service: eval-store
+          namespace: platform
