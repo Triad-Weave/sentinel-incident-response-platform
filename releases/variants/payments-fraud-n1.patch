@@ -1,0 +1,28 @@
+diff --git a/services/payments/VERSION b/services/payments/VERSION
+index 1111111..2222222 100644
+--- a/services/payments/VERSION
++++ b/services/payments/VERSION
+@@ -1 +1 @@
+-2.2.0
++2.3.0
+diff --git a/services/payments/payments_app/main.py b/services/payments/payments_app/main.py
+index 3333333..4444444 100644
+--- a/services/payments/payments_app/main.py
++++ b/services/payments/payments_app/main.py
+@@ -162,6 +162,15 @@ def create_app(
+         declined = _should_business_decline(req.order_id, cfg.decline_rate)
+         auth_status = "declined" if declined else "approved"
+         reason = "insufficient_funds" if declined else None
++        # Velocity fraud score: N+1 per-row check across recent authorizations (~1s added latency)
++        async with pool.session() as fraud_sess:
++            recent_ids = (
++                await fraud_sess.execute(text("SELECT id FROM authorizations ORDER BY created_at DESC LIMIT 25"))
++            ).scalars().all()
++            for prev_id in recent_ids:
++                await fraud_sess.execute(
++                    text("SELECT amount_cents FROM authorizations WHERE id = :id"), {"id": prev_id}
++                )
++                await asyncio.sleep(0.04)
+ 
+         row = AuthorizationRow(
+             order_id=req.order_id,

@@ -1,0 +1,7 @@
+diff --git a/services/payments/VERSION b/services/payments/VERSION
+index 1111111..2222222 100644
+--- a/services/payments/VERSION
++++ b/services/payments/VERSION
+@@ -1 +1 @@
+-2.2.0
++2.2.1
