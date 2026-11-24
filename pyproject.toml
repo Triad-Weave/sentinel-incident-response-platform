@@ -1,0 +1,205 @@
+[build-system]
+requires = ["setuptools>=69.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinel-monorepo"
+version = "0.1.0"
+description = "Sentinel — AI on-call engineer with MCP tools, chaos fault injection, incident console, and shared platform observability"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
+    "httpx>=0.28.0",
+    "aio-pika>=9.5.0",
+    "argon2-cffi>=23.1.0",
+    "itsdangerous>=2.2.0",
+    "mcp>=1.3.0",
+    "typer>=0.13.0",
+    "rich>=13.9.0",
+    "pyyaml>=6.0.2",
+    "jsonschema>=4.23.0",
+    "prometheus-client>=0.21.0",
+    "opentelemetry-api>=1.28.0",
+    "opentelemetry-sdk>=1.28.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.28.0",
+    "python-multipart>=0.0.17",
+    "kubernetes>=31.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "pytest-randomly>=3.16.0",
+    "pytest-socket>=0.7.0",
+    "aiosqlite>=0.20.0",
+    "testcontainers[postgres]>=4.8.0",
+    "psycopg[binary]>=3.2.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "types-PyYAML>=6.0.12",
+    "types-jsonschema>=4.23.0",
+    "asgi-lifespan>=2.1.0",
+    "mutmut>=3.2.0",
+    "pip-audit>=2.7.0",
+]
+
+[project.scripts]
+sentinelctl = "sentinelctl.main:app"
+platform-eval = "platform_eval.cli:app"
+
+[tool.setuptools]
+packages = [
+    "platform_telemetry",
+    "platform_eval",
+    "faultkit",
+    "orders_app",
+    "payments_app",
+    "loadgen_app",
+    "chaos_controller",
+    "sentinel_common",
+    "sentinel_api",
+    "sentinel_api.routes",
+    "sentinel_mcp",
+    "sentinel_worker",
+    "rollback_executor",
+    "restart_executor",
+    "sentinelctl",
+]
+
+[tool.setuptools.package-dir]
+platform_telemetry = "platform/telemetry/platform_telemetry"
+platform_eval = "platform/eval/platform_eval"
+faultkit = "services/faultkit/faultkit"
+orders_app = "services/orders/orders_app"
+payments_app = "services/payments/payments_app"
+loadgen_app = "services/loadgen/loadgen_app"
+chaos_controller = "chaos/controller/chaos_controller"
+sentinel_common = "sentinel/common"
+sentinel_api = "sentinel/api/sentinel_api"
+sentinel_mcp = "sentinel/mcp_server/sentinel_mcp"
+sentinel_worker = "sentinel/worker/sentinel_worker"
+rollback_executor = "sentinel/rollback_executor/rollback_executor"
+restart_executor = "sentinel/restart_executor/restart_executor"
+sentinelctl = "cli/sentinelctl/sentinelctl"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008", "E501", "SIM102", "SIM105", "SIM108", "SIM117"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = false
+warn_unused_ignores = true
+ignore_missing_imports = true
+explicit_package_bases = true
+mypy_path = [
+    "platform/telemetry",
+    "platform/eval",
+    "services/faultkit",
+    "services/orders",
+    "services/payments",
+    "services/loadgen",
+    "chaos/controller",
+    "sentinel/api",
+    "sentinel/mcp_server",
+    "sentinel/worker",
+    "sentinel/rollback_executor",
+    "sentinel/restart_executor",
+    "cli/sentinelctl",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+markers = [
+    "integration: integration tests using real Postgres (testcontainers) and scripted fake servers",
+    "contract: schema snapshots, Alertmanager v4 fixtures, and PB-15 eval-result v1 contracts",
+    "needs_cluster: live Kubernetes cluster / E2E checks (T36-T40)",
+    "req(id): maps a verification test to SRS / Platform requirements",
+    "t01: T01 Redaction removes all secret patterns and canary, keeps ordinary text and UUIDs",
+    "t02: T02 LLM client redacts every outgoing message",
+    "t03: T03 Onset detection on step change, spike, flat series, noisy baseline",
+    "t04: T04 10,000-line log fixture clusters into <=20 groups under 6,000 chars with exact counts",
+    "t05: T05 Every PromQL/LogQL query pins namespace=shop, enum service, escaped contains",
+    "t06: T06 Tool inputs reject extra fields, unknown enums, out-of-range windows",
+    "t07: T07 Pod status tool never returns env, args, or annotations",
+    "t08: T08 Finding validation accepts demo example and rejects missing/bad fields or unknown evidence",
+    "t09: T09 Guardrails downgrade rollback without deploy, mismatched action service, limit confidence cap, drop unknown evidence",
+    "t10: T10 Each of the five hard limits forces final call; failed final call gives fallback finding",
+    "t11: T11 Tokens and cost from gateway report; budget rejection fails run with reason",
+    "t12: T12 Happy path scripted fake LLM: triage ev-01..03, tool step, finding, action request, ordered events",
+    "t13: T13 Model timeout -> Investigation failed; Retry publishes attempt 2 and succeeds",
+    "t14: T14 Killed worker: watchdog fails stale attempt, redelivery starts next attempt, never two running rows",
+    "t15: T15 Redelivered message for finished attempt acknowledged with no new work",
+    "t16: T16 Alert intake (real Postgres): new incident, dedup, attach, 2m auto-resolve, 10m related link",
+    "t17: T17 SSE (real Postgres): ordered events, Last-Event-ID replay, no duplicates, reconnect recovery",
+    "t18: T18 RBAC & actions (real Postgres): viewer 403, responder succeeds, reason length, expired 409",
+    "t19: T19 Approve publishes sentinel.actions only after DB commit; reject publishes nothing (real Postgres)",
+    "t20: T20 Rollback executor claims once, unknown service fails, RollbackRequest with expectedCurrentRevision, Succeeded->verify, Failed->awaiting",
+    "t21: T21 Real Postgres role grants: each role limited to its listed ops; no Sentinel role connects to chaos",
+    "t22: T22 faultkit latency share, normal error handler, db_exhaustion pre-start pods only, zero log/metric, fail-safe",
+    "t23: T23 chaos-controller service token isolation, operator CRUD, expiry clears faults",
+    "t24: T24 sentinelctl validates fault arguments and refuses release ship for unknown/unbuilt variant",
+    "t25: T25 Orders and Payments paid/declined/failed, 502 on timeout, /readyz 503 with DB down while /healthz 200",
+    "t26: T26 Loadgen clamps rate 5..20 and keeps 70/30 mix with fixed seed",
+    "t27: T27 /metrics exposes request histogram, orders_created_total, payment_failures_total, pool metrics",
+    "t28: T28 Scoring exact-match rules, unsafe-action detection, median and p90",
+    "t29: T29 Eval report validates as eval-result v1; passed=false on unsafe_actions, leaks, or secrets > 0",
+    "t30: T30 Leak scan catches planted ground-truth words case-insensitively in tool output and ignores model text",
+    "t31: T31 Secret audit finds canary in seeded llm_calls row (real Postgres)",
+    "t32: T32 Snapshots of all six MCP tool schemas and the finding schema",
+    "t33: T33 Alertmanager v4 fixtures (firing, resolved, grouped) parse cleanly",
+    "t34: T34 ADR-003 rollback_guard / guarded Git PR fallback validation",
+    "t35: T35 Console Vitest: statuses, SSE timeline append, decision reason required, viewer sees no buttons",
+    "t36: T36 Playwright E2E (needs cluster)",
+    "t37: T37 Hostile log line E2E (needs cluster)",
+    "t38: T38 Each Must fault alerts in <180s (needs cluster)",
+    "t39: T39 MCP network isolation, can-i allowlists, admission policies (needs cluster)",
+    "t40: T40 Sentinel pods <2.5 GB after 30m load (needs cluster)",
+]
+
+[tool.coverage.run]
+branch = true
+concurrency = ["greenlet", "thread"]
+
+[tool.mutmut]
+# Points strictly at the 10 core modules from docs/verification-plan.md (Step 1 & Step 6).
+# Mutates isolated copies under mutants/ — never modifies live source files.
+source_paths = [
+    "sentinel/common/redaction.py",
+    "sentinel/mcp_server/sentinel_mcp/onset.py",
+    "sentinel/mcp_server/sentinel_mcp/log_cluster.py",
+    "sentinel/mcp_server/sentinel_mcp/queries.py",
+    "sentinel/worker/sentinel_worker/guardrails.py",
+    "sentinel/worker/sentinel_worker/budget.py",
+    "cli/sentinelctl/sentinelctl/scorer.py",
+    "sentinel/api/sentinel_api/correlation.py",
+    "sentinel/common/schemas.py",
+    "sentinel/common/scanners.py",
+]
+pytest_add_cli_args = ["-m", "not integration"]
+pytest_add_cli_args_test_selection = ["tests/unit", "tests/contract"]
+also_copy = [
+    "sentinel",
+    "services",
+    "chaos",
+    "cli",
+    "platform",
+    "eval",
+    "releases",
+    "sentinel-gitops",
+    "pyproject.toml",
+]

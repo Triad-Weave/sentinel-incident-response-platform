@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=69.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "faultkit"
+version = "0.1.0"
+description = "Silent in-process fault middleware for Sentinel target services (ADR-001)"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.0",
+    "starlette>=0.40.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["faultkit*"]
