@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="412" viewBox="0 0 1200 412" role="img" aria-label="Inside one investigation: a fixed triage pack, then one model loop that calls read-only tools until it submits a finding, which is checked before it is saved." font-family="'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"><title>Inside one investigation: a fixed triage pack, then one model loop that calls read-only tools until it submits a finding, which is checked before it is saved.</title><style>
+.bg{fill:#ffffff}
+.zone rect{fill:#f4f6f9;stroke:#d3d9e2;stroke-width:1}
+.zone-truth rect{fill:#fdf1f0;stroke:#c23a2c;stroke-width:1.4;stroke-dasharray:6 4}
+.zone-sentinel rect{fill:#edf2fc;stroke:#a8bce4}
+.zone-group rect{fill:#f7f8fa;stroke:#d3d9e2}
+.zone-lane rect{fill:#f6f8fb;stroke:#dce1e8}
+.zt{font-size:11px;font-weight:700;letter-spacing:.08em;fill:#5a6576}
+.zone-truth .zt{fill:#b3261e}
+.zone-sentinel .zt{fill:#2453b8}
+.zs{font-size:11px;fill:#6a7585}
+.zf{font-size:11px;font-weight:600;fill:#b3261e}
+.node rect,.node .shape{fill:#ffffff;stroke:#8e9aab;stroke-width:1.2}
+.node .shape-top{fill:none;stroke:#8e9aab;stroke-width:1.2}
+.node-agent rect{fill:#e5edfc;stroke:#2453b8;stroke-width:2}
+.node-person rect{fill:#ffffff;stroke:#1c2531;stroke-width:1.5}
+.node-strip rect{fill:#e8edf5;stroke:#8e9aab;stroke-dasharray:4 3}
+.node-queue rect{fill:#f3f0fb;stroke:#7d6bb3}
+.node-queue .slots{stroke:#7d6bb3;stroke-width:1.2;opacity:.55}
+.node-store .shape{fill:#eef3f8;stroke:#5f7a96}
+.node-store .shape-top{fill:none;stroke:#5f7a96}
+.node-ext rect{stroke-dasharray:4 3;fill:#fbfbfc}
+.node-hot rect{fill:#fdf2e6;stroke:#b45309;stroke-width:2}
+.node-ok rect{fill:#ebf6ee;stroke:#2f7d46}
+.node-bad rect{fill:#fdf1f0;stroke:#c23a2c}
+.nt{font-size:13px;font-weight:600;fill:#1c2531}
+.ns{font-size:11px;fill:#5a6576}
+.edge path{fill:none;stroke:#5a6576;stroke-width:1.5}
+.edge-agent path{stroke:#2453b8;stroke-width:1.8}
+.edge-change path{stroke:#b45309;stroke-width:2}
+.edge-truth path{stroke:#c23a2c;stroke-dasharray:5 4}
+.edge-op path{stroke:#7b8697;stroke-dasharray:6 4}
+.is-dashed path,.is-reply path{stroke-dasharray:5 4}
+.ah{fill:#5a6576}.ah-agent{fill:#2453b8}.ah-change{fill:#b45309}.ah-truth{fill:#c23a2c}.ah-op{fill:#7b8697}
+.el{font-size:11px;fill:#4a5565}
+.el-agent{fill:#2453b8}.el-change{fill:#984a0c}.el-truth{fill:#b3261e}.el-op{fill:#5a6576}
+.halo{paint-order:stroke;stroke:#ffffff;stroke-width:5px;stroke-linejoin:round}
+.badge circle{fill:#1c2531}.badge text{fill:#ffffff;font-size:10.5px;font-weight:700}
+.phase rect{fill:#eef1f5}.phase text{font-size:11.5px;font-weight:600;fill:#344054}.phase .pn{font-weight:700;fill:#1c2531}
+.life{stroke:#b9c2ce;stroke-width:1;stroke-dasharray:3 4}
+.lg text{font-size:11px;fill:#4a5565}
+</style><rect class="bg" x="0" y="0" width="1200" height="412"/><defs><marker id="ag-ah-agent" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="ah ah-agent" d="M0,0 L10,5 L0,10 z"/></marker><marker id="ag-ah-default" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="ah ah-default" d="M0,0 L10,5 L0,10 z"/></marker></defs><g class="l-back"></g><g class="l-mid"><g class="edge edge-default"><path d="M180,100 L228,100" marker-end="url(#ag-ah-default)"/></g><g class="edge edge-default"><path d="M378,100 L426,100" marker-end="url(#ag-ah-default)"/></g><g class="edge edge-agent"><path d="M576,100 L624,100" marker-end="url(#ag-ah-agent)"/></g><g class="edge edge-default"><path d="M774,100 L822,100" marker-end="url(#ag-ah-default)"/></g><g class="edge edge-default"><path d="M972,100 L1020,100" marker-end="url(#ag-ah-default)"/></g><g class="edge edge-agent"><path d="M664,136 L664,196" marker-end="url(#ag-ah-agent)"/></g><g class="edge edge-agent"><path d="M734,196 L734,136" marker-end="url(#ag-ah-agent)"/></g><g class="edge edge-default"><path d="M624,232 L402,232 L402,316" marker-end="url(#ag-ah-default)"/></g><g class="edge edge-default"><path d="M764,136 L764,156 L996,156 L996,316" marker-end="url(#ag-ah-default)"/></g></g><g class="l-front"><g class="node node-svc" data-node="a1"><rect x="30" y="64" width="150" height="72" rx="8"/><text class="nt" x="105.0" y="88.5" text-anchor="middle">investigate job</text><text class="ns" x="105.0" y="104.5" text-anchor="middle">from the queue</text><text class="ns" x="105.0" y="118.5" text-anchor="middle">a new attempt row</text></g><g class="node node-svc" data-node="a2"><rect x="228" y="64" width="150" height="72" rx="8"/><text class="nt" x="303.0" y="88.5" text-anchor="middle">Triage pack</text><text class="ns" x="303.0" y="104.5" text-anchor="middle">3 tools, no model</text><text class="ns" x="303.0" y="118.5" text-anchor="middle">ev-01 … ev-03</text></g><g class="node node-svc" data-node="a3"><rect x="426" y="64" width="150" height="72" rx="8"/><text class="nt" x="501.0" y="88.5" text-anchor="middle">First prompt</text><text class="ns" x="501.0" y="104.5" text-anchor="middle">playbook + alert</text><text class="ns" x="501.0" y="118.5" text-anchor="middle">+ triage results</text></g><g class="node node-agent" data-node="a4"><rect x="624" y="64" width="150" height="72" rx="8"/><text class="nt" x="699.0" y="88.5" text-anchor="middle">Model turn</text><text class="ns" x="699.0" y="104.5" text-anchor="middle">via LLM gateway</text><text class="ns" x="699.0" y="118.5" text-anchor="middle">temperature 0</text></g><g class="node node-svc" data-node="a5"><rect x="822" y="64" width="150" height="72" rx="8"/><text class="nt" x="897.0" y="88.5" text-anchor="middle">Checks</text><text class="ns" x="897.0" y="104.5" text-anchor="middle">schema + evidence ids</text><text class="ns" x="897.0" y="118.5" text-anchor="middle">guardrails</text></g><g class="node node-hot" data-node="a6"><rect x="1020" y="64" width="150" height="72" rx="8"/><text class="nt" x="1095.0" y="88.5" text-anchor="middle">Finding saved</text><text class="ns" x="1095.0" y="104.5" text-anchor="middle">+ action request</text><text class="ns" x="1095.0" y="118.5" text-anchor="middle">→ Awaiting decision</text></g><g class="node node-svc" data-node="a7"><rect x="624" y="196" width="150" height="72" rx="8"/><text class="nt" x="699.0" y="220.5" text-anchor="middle">MCP tool call</text><text class="ns" x="699.0" y="236.5" text-anchor="middle">read-only, redacted</text><text class="ns" x="699.0" y="250.5" text-anchor="middle">step saved + streamed</text></g><g class="node node-ext" data-node="n1"><rect x="228" y="316" width="348" height="72" rx="8"/><text class="nt" x="402.0" y="340.5" text-anchor="middle">A hard limit is reached</text><text class="ns" x="402.0" y="356.5" text-anchor="middle">14 tool calls · 150 s · 90k in / 6k out tokens · $0.35</text><text class="ns" x="402.0" y="370.5" text-anchor="middle">one forced submit_finding, else a fallback finding</text></g><g class="node node-bad" data-node="n2"><rect x="822" y="316" width="348" height="72" rx="8"/><text class="nt" x="996.0" y="340.5" text-anchor="middle">The model or the gateway fails</text><text class="ns" x="996.0" y="356.5" text-anchor="middle">the incident shows “Investigation failed” + reason</text><text class="ns" x="996.0" y="370.5" text-anchor="middle">a responder presses Retry → attempt n + 1</text></g></g><g class="l-top"><text class="el el-agent" x="798" y="54" text-anchor="middle">submit_finding</text><text class="el el-default" x="996" y="54" text-anchor="middle">valid</text><text class="el el-agent" x="656" y="170" text-anchor="end">tool call</text><text class="el el-agent" x="742" y="170" text-anchor="start">untrusted result</text><text class="el el-default" x="513" y="226" text-anchor="middle">if a limit is hit</text><text class="el el-default" x="880" y="172" text-anchor="middle">model call fails</text></g></svg>
