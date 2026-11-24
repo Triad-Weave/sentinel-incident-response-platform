@@ -1,7 +1,7 @@
 # Sentinel — Verification Report
 
-- **Generated (UTC):** 2026-11-22 14:51:15 UTC
-- **Sentinel commit:** `dc6dc9d` (uncommitted working tree changes present)
+- **Generated (UTC):** 2026-11-23 11:18:37 UTC
+- **Sentinel commit:** `cc4d010` (uncommitted working tree changes present)
 - **Execution environment:** `local` (CI (`make verify-ci`))
 - **Runnable automated checks verdict:** **PASS (with explicit NOT RUN items below)**
 - **Layers 6–8 (Cluster, Evaluation, Acceptance):** **NOT RUN** — no Kubernetes cluster or shared platform exists yet.
@@ -11,27 +11,27 @@
 | Layer | Check | Where | Kind | Result | Time (s) | Evidence |
 |---|---|---|---|---|---:|---|
 | L1 Static | uv lock --check | local | static | **PASS** | 0.09 | uv.lock up to date |
-| L1 Static | ruff check . | local | static | **PASS** | 0.05 | 0 issues |
+| L1 Static | ruff check . | local | static | **PASS** | 0.04 | 0 issues |
 | L1 Static | ruff format --check . | local | static | **PASS** | 0.01 | all files formatted |
-| L1 Static | mypy (14 packages) | local | static | **PASS** | 0.71 | Success: no issues found in 77 source files |
-| L1 Static | console eslint (`pnpm --dir console lint`) | local | static | **PASS** | 1.25 | 0 eslint errors |
-| L1 Static | console TypeScript (`tsc --noEmit`) | local | static | **PASS** | 0.86 | 0 type errors |
-| L1 Static | hadolint (all 10 Dockerfiles) | local | static | **PASS** | 0.11 | 10 Dockerfiles clean |
+| L1 Static | mypy (14 packages) | local | static | **PASS** | 0.56 | Success: no issues found in 77 source files |
+| L1 Static | console eslint (`pnpm --dir console lint`) | local | static | **PASS** | 1.32 | 0 eslint errors |
+| L1 Static | console TypeScript (`tsc --noEmit`) | local | static | **PASS** | 1.04 | 0 type errors |
+| L1 Static | hadolint (all 10 Dockerfiles) | local | static | **PASS** | 0.10 | 10 Dockerfiles clean |
 | L1 Static | yamllint (eval/ & sentinel-gitops/) | local | static | **PASS** | 0.16 | 0 yaml lint errors |
 | L1 Static | actionlint (.github/workflows/) | local | static | **PASS** | 0.10 | 0 workflow issues |
-| L1 Static | gitleaks (full git history) | local | static | **PASS** | 0.07 | 0 leaks in git history |
-| L1 Static | pip-audit (--skip-editable) | local | static | **PASS** | 0.47 | 0 known Python CVEs |
-| L1 Static | pnpm audit --prod --audit-level high | local | static | **PASS** | 5.24 | 0 high/critical JS CVEs |
-| L1 Static (extra) | Offline YAML/Dockerfile manifest lint (NOT cluster privilege/network/memory proof) | local | static | **STATIC-EXTRA-OK** | 0.05 | static YAML/Dockerfile invariants checked (live cluster enforcement still NOT RUN) |
-| L2 Unit | pytest unit suite (T01–T11, T22, T24–T26, T28, T30, T34) + >=80% floor | local | static | **PASS** | 7.22 | 65 passed, 19 deselected in 6.78s; TOTAL 4759 749 1064 165 82% |
-| L2 Unit | Coverage floors (>=80% overall lines, >=90% branch on 10 core modules) | local | static | **PASS** | 0.02 | Overall line coverage: 84.26% (4010/4759) [floor >= 80.0%] \| Overall branch coverage: 69.83% (743/1064) |
-| L2 Unit | Console Vitest (T35: statuses, SSE timeline, reason, viewer RBAC) | local | static | **PASS** | 1.23 | Vitest passed |
-| L2 Unit | 3x randomized-order anti-flake check (pytest-randomly) | local | static | **PASS** | 9.65 | seed=101: PASS (68 passed, 16 deselected in 2.67s); seed=202: PASS (68 passed, 16 deselected in 2.76s); seed=303: PASS (68 passed, 16 deselected in 3.10s) |
+| L1 Static | gitleaks (full git history) | local | static | **PASS** | 0.10 | 0 leaks in git history |
+| L1 Static | pip-audit (--skip-editable) | local | static | **PASS** | 46.03 | 0 known Python CVEs |
+| L1 Static | pnpm audit --prod --audit-level high | local | static | **PASS** | 1.66 | 0 high/critical JS CVEs |
+| L1 Static (extra) | Offline YAML/Dockerfile manifest lint (NOT cluster privilege/network/memory proof) | local | static | **STATIC-EXTRA-OK** | 0.07 | static YAML/Dockerfile invariants checked (live cluster enforcement still NOT RUN) |
+| L2 Unit | pytest unit suite (T01–T11, T22, T24–T26, T28, T30, T34) + >=80% floor | local | static | **PASS** | 7.15 | 66 passed, 19 deselected in 6.66s; TOTAL 4789 756 1076 168 82% |
+| L2 Unit | Coverage floors (>=80% overall lines, >=90% branch on 10 core modules) | local | static | **PASS** | 0.02 | Overall line coverage: 84.21% (4033/4789) [floor >= 80.0%] \| Overall branch coverage: 69.70% (750/1076) |
+| L2 Unit | Console Vitest (T35: statuses, SSE timeline, reason, viewer RBAC) | local | static | **PASS** | 1.24 | Vitest passed |
+| L2 Unit | 3x randomized-order anti-flake check (pytest-randomly) | local | static | **PASS** | 9.32 | seed=101: PASS (69 passed, 16 deselected in 2.68s); seed=202: PASS (69 passed, 16 deselected in 2.69s); seed=303: PASS (69 passed, 16 deselected in 2.90s) |
 | L3 Integration | pytest -m integration (real testcontainers postgres:16-alpine: T12–T21, T23, T27, T31) | local | static | **NOT RUN** | 0.00 | Docker daemon not running locally (runs in CI on ubuntu-latest with postgres:16-alpine) |
-| L4 Contract | pytest -m contract (T29 eval-result/v1, T32 tool/finding snapshots, T33 Alertmanager v4) | local | static | **PASS** | 0.92 | 3 passed, 81 deselected in 0.61s |
-| L4 Contract | Console Vite production build (`pnpm --dir console build`) | local | static | **PASS** | 1.50 | built cleanly |
-| L5 Charts & Images | helm lint (10 charts under sentinel-gitops/charts/) | local | static | **PASS** | 0.36 | 10 charts linted, 0 failed |
-| L5 Charts & Images | kubeconform -strict (7 standalone K8s manifest files: policies, alerts, Argo apps) | local | static | **PASS** | 3.70 | 31 core K8s resources valid, 0 invalid (6 CRDs skipped) |
+| L4 Contract | pytest -m contract (T29 eval-result/v1, T32 tool/finding snapshots, T33 Alertmanager v4) | local | static | **PASS** | 0.91 | 3 passed, 82 deselected in 0.61s |
+| L4 Contract | Console Vite production build (`pnpm --dir console build`) | local | static | **PASS** | 1.49 | built cleanly |
+| L5 Charts & Images | helm lint (10 charts under sentinel-gitops/charts/) | local | static | **PASS** | 0.34 | 10 charts linted, 0 failed |
+| L5 Charts & Images | kubeconform -strict (7 standalone K8s manifest files: policies, alerts, Argo apps) | local | static | **PASS** | 1.40 | 31 core K8s resources valid, 0 invalid (6 CRDs skipped) |
 | L5 Charts & Images | helm template \| kubeconform -strict (10 thin service-lib charts) | local | static | **NOT RUN** | 0.00 | blocked on unpublished platform OCI dependency oci://ghcr.io/cohort-platform/charts/service-lib (10 charts missing subchart) |
 | L5 Charts & Images | Trivy container image CVE scan (CRITICAL/HIGH) | CI | static | **NOT RUN** | 0.00 | runs in CI docker-build-only job (aquasecurity/trivy-action) after Docker build |
 | L6 Cluster | Live E2E suite (T36–T40, make e2e) | local | cluster | **NOT RUN** | 0.00 | needs cluster (no Kubernetes cluster running) |
