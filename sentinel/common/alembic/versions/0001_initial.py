@@ -21,6 +21,15 @@ def upgrade() -> None:
     SentinelBase.metadata.create_all(bind=bind)
 
     if bind.dialect.name == "postgresql":
+        # Enforce at most one running investigation per incident (FR-AG-02, T14)
+        op.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS one_running_per_incident
+                ON investigations (incident_id)
+                WHERE status = 'running';
+            """
+        )
+
         # Append-only incident_events NOTIFY trigger (Architecture p.30-31)
         op.execute(
             """
@@ -47,12 +56,14 @@ def upgrade() -> None:
                     GRANT SELECT, UPDATE ON incidents TO sentinel_worker;
                     GRANT SELECT ON alerts TO sentinel_worker;
                     GRANT SELECT, INSERT, UPDATE ON investigations TO sentinel_worker;
-                    GRANT SELECT, INSERT ON investigation_steps, llm_calls, findings, incident_events, postmortems, incident_questions TO sentinel_worker;
+                    GRANT SELECT, INSERT ON investigation_steps, llm_calls, findings, incident_events, incident_questions TO sentinel_worker;
+                    GRANT SELECT, INSERT, UPDATE ON postmortems TO sentinel_worker;
                     GRANT SELECT, INSERT ON action_requests TO sentinel_worker;
                 END IF;
 
                 IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sentinel_actuator') THEN
                     GRANT SELECT ON incidents, action_requests TO sentinel_actuator;
+                    GRANT UPDATE (status) ON incidents TO sentinel_actuator;
                     GRANT UPDATE (status, claimed_at, executed_at, result) ON action_requests TO sentinel_actuator;
                     GRANT INSERT ON incident_events TO sentinel_actuator;
                 END IF;
