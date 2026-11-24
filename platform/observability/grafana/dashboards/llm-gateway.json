@@ -1,0 +1,58 @@
+{
+  "uid": "cohort-llm-gateway",
+  "title": "LLM Gateway Usage & Cost (PB-14)",
+  "tags": ["platform", "pb-14", "llm"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Cumulative Daily Spend USD by Project & Feature",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (project, feature) (llm_gateway_cost_usd_total)",
+          "legendFormat": "{{project}} / {{feature}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Tokens per Minute by Project & Kind",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (project, kind) (rate(llm_gateway_tokens_total[1m])) * 60",
+          "legendFormat": "{{project}} ({{kind}})"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "LLM Gateway Call Latency p95 (s)",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, project, model) (rate(llm_gateway_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{project}} {{model}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Remaining Daily Budget (USD)",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "llm_gateway_daily_budget_remaining_usd",
+          "legendFormat": "{{project}}"
+        }
+      ]
+    }
+  ]
+}
