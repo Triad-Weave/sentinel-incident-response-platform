@@ -1,0 +1,4 @@
+# sentinel-gitops/apps/shop/payments/release.yaml — THE ONLY FILE a rollback touches (PB-07)
+image:
+  tag: "4c19a21"
+version: "2.2.0"

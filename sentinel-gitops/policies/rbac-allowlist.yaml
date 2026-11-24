@@ -1,0 +1,40 @@
+# Expected RBAC permission allowlist verified by `make verify-privilege` (Architecture p.34, NFR-04).
+# Any extra verb, resource, or namespace grant fails CI.
+service_accounts:
+  "sentinel:sentinel-mcp":
+    shop:
+      pods: [get, list, watch]
+      events: [get, list, watch]
+      deployments.apps: [get, list, watch]
+      replicasets.apps: [get, list, watch]
+    sentinel-chaos: {}
+    sentinel: {}
+
+  "sentinel:rollback-executor":
+    sentinel:
+      rollbackrequests.platform.cohort.dev: [create, get, list, watch]
+    shop: {}
+    sentinel-chaos: {}
+
+  "sentinel:restart-executor":
+    shop:
+      pods: [get, list, delete]
+      deployments.apps: [get]
+    sentinel: {}
+    sentinel-chaos: {}
+
+  "sentinel:sentinel-api":
+    sentinel: {}
+    shop: {}
+    sentinel-chaos: {}
+
+  "sentinel:sentinel-worker":
+    sentinel: {}
+    shop: {}
+    sentinel-chaos: {}
+
+forbidden_for_all:
+  - { resource: secrets, verbs: [get, list, watch, create, update, patch, delete] }
+  - { resource: roles.rbac.authorization.k8s.io, verbs: [create, update, patch, delete] }
+  - { resource: networkpolicies.networking.k8s.io, verbs: [create, update, patch, delete] }
+  - { resource: validatingadmissionpolicies.admissionregistration.k8s.io, verbs: [create, update, patch, delete] }

@@ -1,0 +1,151 @@
+# Least-privilege RBAC for every Sentinel component (NFR-04, Architecture p.19-20, 33-34).
+# Components needing NO cluster API access mount NO ServiceAccount token (`automountServiceAccountToken: false`).
+# NO Sentinel identity can read Secrets or modify RBAC/NetworkPolicy/AdmissionPolicy.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: orders
+  namespace: shop
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payments
+  namespace: shop
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: loadgen
+  namespace: shop
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: chaos-controller
+  namespace: sentinel-chaos
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sentinel-api
+  namespace: sentinel
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sentinel-worker
+  namespace: sentinel
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: console
+  namespace: sentinel
+automountServiceAccountToken: false
+---
+# sentinel-mcp: strictly read-only in `shop` namespace ONLY (never sentinel-chaos, never Secrets!)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sentinel-mcp
+  namespace: sentinel
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sentinel-mcp-shop-reader
+  namespace: shop
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sentinel-mcp-shop-reader
+  namespace: shop
+subjects:
+  - kind: ServiceAccount
+    name: sentinel-mcp
+    namespace: sentinel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sentinel-mcp-shop-reader
+---
+# rollback-executor: ONLY create/get/list/watch RollbackRequest in `sentinel` (fenced by admission policy)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rollback-executor
+  namespace: sentinel
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rollback-executor
+  namespace: sentinel
+rules:
+  - apiGroups: ["platform.cohort.dev"]
+    resources: ["rollbackrequests"]
+    verbs: ["create", "get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rollback-executor
+  namespace: sentinel
+subjects:
+  - kind: ServiceAccount
+    name: rollback-executor
+    namespace: sentinel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rollback-executor
+---
+# restart-executor (Should, FR-AG-08): ONLY pods get/list/delete + deployments get in `shop` (fenced by admission policy)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: restart-executor
+  namespace: sentinel
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restart-executor-shop
+  namespace: shop
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: restart-executor-shop
+  namespace: shop
+subjects:
+  - kind: ServiceAccount
+    name: restart-executor
+    namespace: sentinel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: restart-executor-shop
