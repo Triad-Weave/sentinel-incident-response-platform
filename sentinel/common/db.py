@@ -40,10 +40,25 @@ def make_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession
     return async_sessionmaker(engine, expire_on_commit=False)
 
 
-async def init_sentinel_schema(engine: AsyncEngine) -> None:
-    """Create tables (and Postgres pg_notify trigger if running against PostgreSQL)."""
+async def init_sentinel_schema(engine: AsyncEngine, *, skip_ddl_on_postgres: bool = False) -> None:
+    """Create tables, partial unique index, and Postgres trigger/grants when permitted.
+
+    Least-privilege PostgreSQL roles (`sentinel_worker`, `sentinel_actuator`) do not own
+    DDL privileges on schema `public`, so they pass `skip_ddl_on_postgres=True` and rely
+    on Alembic migrations or `sentinel-api` to initialise the schema.
+    """
+    if skip_ddl_on_postgres and engine.dialect.name == "postgresql":
+        return
+
     async with engine.begin() as conn:
         await conn.run_sync(SentinelBase.metadata.create_all)
+        await conn.exec_driver_sql(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS one_running_per_incident
+                ON investigations (incident_id)
+                WHERE status = 'running'
+            """
+        )
         if conn.dialect.name == "postgresql":
             await conn.exec_driver_sql(
                 """
@@ -58,6 +73,28 @@ async def init_sentinel_schema(engine: AsyncEngine) -> None:
                 CREATE TRIGGER trg_notify_incident_event
                     AFTER INSERT ON incident_events
                     FOR EACH ROW EXECUTE FUNCTION notify_incident_event();
+                """
+            )
+            await conn.exec_driver_sql(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sentinel_worker') THEN
+                        GRANT SELECT, UPDATE ON incidents TO sentinel_worker;
+                        GRANT SELECT ON alerts TO sentinel_worker;
+                        GRANT SELECT, INSERT, UPDATE ON investigations TO sentinel_worker;
+                        GRANT SELECT, INSERT ON investigation_steps, llm_calls, findings, incident_events, incident_questions TO sentinel_worker;
+                        GRANT SELECT, INSERT, UPDATE ON postmortems TO sentinel_worker;
+                        GRANT SELECT, INSERT ON action_requests TO sentinel_worker;
+                    END IF;
+
+                    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sentinel_actuator') THEN
+                        GRANT SELECT ON incidents, action_requests TO sentinel_actuator;
+                        GRANT UPDATE (status) ON incidents TO sentinel_actuator;
+                        GRANT UPDATE (status, claimed_at, executed_at, result) ON action_requests TO sentinel_actuator;
+                        GRANT INSERT ON incident_events TO sentinel_actuator;
+                    END IF;
+                END $$;
                 """
             )
 

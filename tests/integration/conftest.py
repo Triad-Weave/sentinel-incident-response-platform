@@ -28,24 +28,36 @@ def pg_container() -> Iterator[dict[str, Any]]:
         host = pg.get_container_host_ip()
         port = int(pg.get_exposed_port(5432))
 
-        # Apply init-dbs.sql (CREATE DATABASE / CREATE ROLE / REVOKE CONNECT FROM PUBLIC)
+        # Apply init-dbs.sql (CREATE DATABASE / CREATE ROLE / REVOKE CONNECT / \connect sentinel grants)
         raw_sql = INIT_SQL.read_text(encoding="utf-8")
-        with psycopg.connect(
-            host=host,
-            port=port,
-            user="postgres",
-            password="pg-test-superuser",
-            dbname="postgres",
-            autocommit=True,
-        ) as conn:
-            with conn.cursor() as cur:
-                for stmt in raw_sql.split(";"):
-                    cleaned = "\n".join(
-                        ln for ln in stmt.splitlines() if not ln.strip().startswith("--")
-                    ).strip()
-                    if not cleaned or cleaned.startswith("\\"):
-                        continue
-                    cur.execute(cleaned)
+        sections: list[tuple[str, list[str]]] = [("postgres", [])]
+        for line in raw_sql.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("--"):
+                continue
+            if stripped.startswith("\\connect "):
+                target_db = stripped.split(None, 1)[1].strip().rstrip(";")
+                sections.append((target_db, []))
+                continue
+            sections[-1][1].append(line)
+
+        for target_db, lines in sections:
+            block = "\n".join(lines).strip()
+            if not block:
+                continue
+            with psycopg.connect(
+                host=host,
+                port=port,
+                user="postgres",
+                password="pg-test-superuser",
+                dbname=target_db,
+                autocommit=True,
+            ) as conn:
+                with conn.cursor() as cur:
+                    for stmt in block.split(";"):
+                        cleaned = stmt.strip()
+                        if cleaned:
+                            cur.execute(cleaned)
 
         yield {
             "host": host,

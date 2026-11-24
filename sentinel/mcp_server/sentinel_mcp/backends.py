@@ -214,6 +214,13 @@ class LiveClusterBackend(TelemetryBackend):
                 ready = r.status_code == 200
         except Exception:
             ready = False
+        image_tag = version
+        try:
+            deploys = await self.list_deploys(service=service, limit=1)
+            if deploys and deploys[0].get("git_revision"):
+                image_tag = str(deploys[0]["git_revision"])
+        except Exception:
+            pass
         return {
             "service": service,
             "deployment": {
@@ -221,7 +228,7 @@ class LiveClusterBackend(TelemetryBackend):
                 "ready": 1 if ready else 0,
                 "updated": 1,
                 "available": 1 if ready else 0,
-                "image_tag": version,
+                "image_tag": image_tag,
                 "conditions": [
                     {
                         "type": "Available",
@@ -238,7 +245,7 @@ class LiveClusterBackend(TelemetryBackend):
                     "restarts": 0,
                     "last_termination_reason": None,
                     "started_at": (datetime.now(tz=UTC) - timedelta(minutes=30)).isoformat(),
-                    "image_tag": version,
+                    "image_tag": image_tag,
                 }
             ],
         }
