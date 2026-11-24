@@ -201,9 +201,18 @@ def _mock_chat_completion(body: dict[str, Any]) -> dict[str, Any]:
     # Build finding grounded in evidence IDs present in context
     ev_ids = sorted(set(re.findall(r"ev-\d{2,3}", full_text))) or ["ev-01"]
     lower = full_text.lower()
-    if "db_pool" in lower and (
-        "0.95" in lower or "1.0" in lower or "acquire" in lower or "pool" in lower
-    ):
+    has_db_saturation = (
+        "db_pool_acquire_timeout" in lower
+        or "pool acquire timeout" in lower
+        or "pool exhausted" in lower
+        or bool(
+            re.search(
+                r'"db_pool_in_use_ratio"\s*:\s*\{[^}]*"current"\s*:\s*(?:0\.9\d*|1(?:\.0*)?)',
+                lower,
+            )
+        )
+    )
+    if has_db_saturation:
         svc = (
             "payments"
             if "payments" in lower and "db_exhaustion" not in lower and "payments_pool" in lower

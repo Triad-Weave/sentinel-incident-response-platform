@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -56,7 +56,8 @@ class RollbackRequestBody(BaseModel):
     reason: str
 
 
-# In-memory deploy history & idempotent rollback registry seeded with baseline releases
+# In-memory deploy history & idempotent rollback registry seeded with aged baseline releases
+_BASELINE_DEPLOYED_AT = (datetime.now(tz=UTC) - timedelta(hours=4)).isoformat()
 _DEPLOY_HISTORY: dict[str, list[DeployRecord]] = {
     "shop-orders": [
         DeployRecord(
@@ -65,7 +66,7 @@ _DEPLOY_HISTORY: dict[str, list[DeployRecord]] = {
             revision="8b2d004",
             version="1.3.0",
             previous_version="1.2.0",
-            deployed_at=datetime.now(tz=UTC).isoformat(),
+            deployed_at=_BASELINE_DEPLOYED_AT,
             git_commit="8b2d004",
             message="chore(orders): baseline release 1.3.0",
         )
@@ -77,7 +78,7 @@ _DEPLOY_HISTORY: dict[str, list[DeployRecord]] = {
             revision="4c19a21",
             version="2.2.0",
             previous_version="2.1.0",
-            deployed_at=datetime.now(tz=UTC).isoformat(),
+            deployed_at=_BASELINE_DEPLOYED_AT,
             git_commit="4c19a21",
             message="chore(payments): baseline release 2.2.0",
         )
