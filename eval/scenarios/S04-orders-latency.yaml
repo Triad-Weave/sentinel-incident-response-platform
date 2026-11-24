@@ -1,0 +1,24 @@
+id: S04-orders-latency
+description: Local latency added directly to Orders (+1200 ms) while Payments stays fast.
+setup:
+  baseline_minutes: 2
+inject:
+  - kind: fault
+    type: latency
+    service: orders
+    intensity: {delay_ms: 1200, share: 1.0}
+    duration: 10m
+    after: 0s
+expect:
+  alert_within_seconds: 180
+  service: orders
+  fault_type: latency
+  action: none
+  action_if_restart_enabled: none
+judge_reference: >
+  Orders p95 latency jumped by ~1200 ms with no correlating deploy while Payments latency and
+  Orders' upstream latency to Payments remained flat.
+cleanup:
+  clear_faults: true
+  restore_release: false
+  recovery_timeout_seconds: 300
