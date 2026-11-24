@@ -1,0 +1,24 @@
+# Three namespaces keeping trust zones strictly separated, all labelled project=sentinel
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shop
+  labels:
+    project: sentinel
+    tier: target-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sentinel-chaos
+  labels:
+    project: sentinel
+    tier: ground-truth
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sentinel
+  labels:
+    project: sentinel
+    tier: agent-stack
